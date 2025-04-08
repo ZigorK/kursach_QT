@@ -1,17 +1,19 @@
-#pragma once
-#include <QMainWindow>
-#include <QSqlDatabase>
-#include <QSqlQueryModel>
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
 
-QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
-QT_END_NAMESPACE
+#include <QMainWindow>
+#include <QSqlQueryModel>
+#include "DatabaseManager.h"
+
+namespace Ui {
+class MainWindow;
+}
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
 private slots:
@@ -21,8 +23,7 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    QSqlDatabase db;
-    QSqlQueryModel *model;
-    void connectToDatabase();
-    void updateTableView();
+    DatabaseManager *dbManager;  // Используем наш класс для работы с БД
 };
+
+#endif // MAINWINDOW_H

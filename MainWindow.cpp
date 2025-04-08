@@ -1,42 +1,43 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
-#include <QSqlQuery>
-#include <QSqlError>
-#include <QFileDialog>
 #include <QMessageBox>
-#include <QDebug>
-#include <QSqlDriver>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QSqlError>
 
 MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent), ui(new Ui::MainWindow), model(new QSqlQueryModel(this)) {
+    QMainWindow(parent), ui(new Ui::MainWindow), dbManager(new DatabaseManager()) {
     ui->setupUi(this);
-    ui->tableView->setModel(model);
+    ui->tableView->setModel(dbManager->getModel());
+    ui->dbTypeCombo->addItem("QSQLITE");  // Добавляем SQLite в список
+    ui->dbTypeCombo->addItem("QPSQL");    // Добавляем PostgreSQL в список
 }
 
 MainWindow::~MainWindow() {
     delete ui;
+    delete dbManager;
 }
 
 void MainWindow::on_connectButton_clicked() {
-    QString dbType = ui->dbTypeCombo->currentText(); // e.g., QMYSQL, QPSQL
-    db = QSqlDatabase::addDatabase(dbType);
-    db.setHostName(ui->hostEdit->text());
-    db.setDatabaseName(ui->dbNameEdit->text());
-    db.setUserName(ui->userEdit->text());
-    db.setPassword(ui->passwordEdit->text());
+    QString dbType = ui->dbTypeCombo->currentText();  // Получаем тип базы данных
+    QString host = ui->hostEdit->text();
+    QString dbName = ui->dbNameEdit->text();
+    QString user = ui->userEdit->text();
+    QString password = ui->passwordEdit->text();
 
-    if (db.open()) {
+    if (dbManager->connectToDatabase(dbType, host, dbName, user, password)) {
         QMessageBox::information(this, "Success", "Connected to database!");
     } else {
-        QMessageBox::critical(this, "Error", db.lastError().text());
+        QMessageBox::critical(this, "Error", dbManager->getLastError());
     }
 }
 
 void MainWindow::on_executeQueryButton_clicked() {
     QString queryText = ui->queryEdit->toPlainText();
-    model->setQuery(queryText, db);
-    if (model->lastError().isValid()) {
-        QMessageBox::critical(this, "Query Error", model->lastError().text());
+    dbManager->getModel()->setQuery(queryText);
+
+    if (dbManager->getModel()->lastError().isValid()) {
+        QMessageBox::critical(this, "Query Error", dbManager->getModel()->lastError().text());
     }
 }
 
@@ -48,18 +49,19 @@ void MainWindow::on_exportButton_clicked() {
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
 
     QTextStream stream(&file);
-    for (int col = 0; col < model->columnCount(); ++col)
-        stream << model->headerData(col, Qt::Horizontal).toString() << ",";
+    // Запись заголовков таблицы
+    for (int col = 0; col < dbManager->getModel()->columnCount(); ++col)
+        stream << dbManager->getModel()->headerData(col, Qt::Horizontal).toString() << ",";
 
     stream << "\n";
 
-    for (int row = 0; row < model->rowCount(); ++row) {
-        for (int col = 0; col < model->columnCount(); ++col)
-            stream << model->data(model->index(row, col)).toString() << ",";
+    // Запись данных таблицы
+    for (int row = 0; row < dbManager->getModel()->rowCount(); ++row) {
+        for (int col = 0; col < dbManager->getModel()->columnCount(); ++col)
+            stream << dbManager->getModel()->data(dbManager->getModel()->index(row, col)).toString() << ",";
         stream << "\n";
     }
 
     file.close();
     QMessageBox::information(this, "Exported", "Data exported successfully!");
 }
-
